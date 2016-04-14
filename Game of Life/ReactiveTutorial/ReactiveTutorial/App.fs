@@ -3,16 +3,19 @@
 open System
 open System.Windows
 open System.Windows.Controls
-
 open FSharpx
 
+//Load GUI
 type MainWindow = XAML<"MainWindow.xaml">
 
+//Set Grid Size
 let c = 16
 
+//Main Loop
 let loadWindow() =
     let window = MainWindow()
    
+    //Populate Cells
     let rec popRow r c i =
         if i < c
         then
@@ -35,6 +38,7 @@ let loadWindow() =
 
     popRows 16 16 0
 
+    //Helper functions to manipulate cells
     let xy2i (x,y) c =
         y*c+x
     let setCell (x,y) b =
@@ -50,23 +54,24 @@ let loadWindow() =
     let dead (x,y) =
         not (alive (x,y))
 
+    //Get a bool grid of the cells
     let boolRow r =
         [| for j in 0 .. 15 -> alive (j, r) |]
     let boolRows =
         (boolRow 1)
-
     let boolGrid n =
         Array2D.init n n (fun i j -> (alive (i, j)))
-
     let bool2int b =
         if b then 1 else 0
 
+    //Access cell status safely
     let getCellSafe (x, y) l1 l2 (g:bool [,]) =
         bool2int (if x >= l1 && x <= l2 && y >= l1 && y <= l2
                     then g.[x, y]
                     else false)
         
 
+    //Run game
     let step (x, y) g = 
         let a = 
             getCellSafe (x-1, y) 0 15 g +
@@ -110,18 +115,21 @@ let loadWindow() =
             a + b
         else 0
 
+    //Check wheter N = INF
     let isInf _ =
         System.Convert.ToBoolean(window.inf.GetValue(Controls.Primitives.ToggleButton.IsCheckedProperty))
 
+    //Play in INF mode
     let rec playInf _ = 
         let x = (stepRows 16 16 0 (boolGrid 16))
         if x > 0 && isInf 0
         then playInf 0
         
-
+    //Play once
     let playOnce _ =
         stepRows 16 16 0 (boolGrid 16)
 
+    //Play N times
     let play n = 
             let rec play1 n = 
                 if n > 0
@@ -131,11 +139,11 @@ let loadWindow() =
                 else 0
             in ignore (play1 n)
                 
-             
+    //Get N 
     let getSliderN _ =
         int (window.slider.Value)
         
-
+    //UI Event Handlers
     let play1Click x = 
         ignore (playOnce 0)
 
@@ -145,9 +153,8 @@ let loadWindow() =
             playInf 0
         else
             play (getSliderN 0)
-        
-        
-        
+    
+    //Reset game   
     let rec killRow r c i =
         if i < c
         then
@@ -165,15 +172,12 @@ let loadWindow() =
     let kill x =
         ignore (killRows 16 16 0)
        
-    
+    //UI Glue
     window.play1.Click.Add(play1Click)
     window.playN.Click.Add(playNClick)
-    
     window.kill.Click.Add(kill)
 
     
-   
-
     window.Root
 
 [<STAThread>]

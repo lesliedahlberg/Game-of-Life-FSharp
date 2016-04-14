@@ -19,7 +19,7 @@ let loadWindow() =
             let b = System.Windows.Controls.Primitives.ToggleButton()
             Grid.SetRow(b, r)
             Grid.SetColumn(b, i)
-            b.Height <- 20.0
+            b.Background <- System.Windows.Media.SolidColorBrush(Media.Color.FromScRgb(255.0f, 255.0f, 255.0f, 255.0f))
             ignore (window.gameGrid.Children.Add(b))
             popRow r c (i+1)
         else
@@ -38,7 +38,7 @@ let loadWindow() =
     let xy2i (x,y) c =
         y*c+x
     let setCell (x,y) b =
-        window.gameGrid.Children.Item(xy2i (x,y) c).SetValue(Controls.Primitives.ToggleButton.IsCheckedProperty, b)
+        window.gameGrid.Children.Item(xy2i (x,y) c).SetValue(Controls.Primitives.ToggleButton.IsCheckedProperty, b) 
     let getCell (x,y) =
         System.Convert.ToBoolean(window.gameGrid.Children.Item(xy2i (x,y) c).GetValue(Controls.Primitives.ToggleButton.IsCheckedProperty))
     let live (x,y) =
@@ -80,54 +80,71 @@ let loadWindow() =
         if a < 2
         then
             die (x, y)
-            1
+            let t = g.[x, y]
+            if t then 1 else 0
         else if a > 3
         then
             die (x, y)
-            1
+            let t = g.[x, y]
+            if t then 1 else 0
         else if a = 3
         then
             live (x, y)
-            1
+            let t = not (g.[x, y])
+            if t then 1 else 0
         else 0
 
     let rec stepRow r c i g =
         if i < c
         then
-            (step (i, r) g) + (stepRow r c (i+1) g)
+            let a = (step (i, r) g)
+            let b = (stepRow r c (i+1) g)
+            a + b
         else
             0
 
     let rec stepRows r c i g =
         if i < r then
-            (stepRow i c 0 g) + (stepRows r c (i+1) g)
+            let a = (stepRow i c 0 g)
+            let b = (stepRows r c (i+1) g)
+            a + b
         else 0
 
     let isInf _ =
         System.Convert.ToBoolean(window.inf.GetValue(Controls.Primitives.ToggleButton.IsCheckedProperty))
 
+    let rec playInf _ = 
+        let x = (stepRows 16 16 0 (boolGrid 16))
+        if x > 0 && isInf 0
+        then playInf 0
+        
+
+    let playOnce _ =
+        stepRows 16 16 0 (boolGrid 16)
+
     let play n = 
-        async{
             let rec play1 n = 
                 if n > 0
                 then
                     let a = (stepRows 16 16 0 (boolGrid 16))
-                    if a > 0 then a + (play1 (n-1)) else a
+                    if a <> 0 then a + (play1 (n-1)) else a
                 else 0
             in ignore (play1 n)
-        } |> Async.StartImmediate
                 
              
     let getSliderN _ =
-        if isInf 0 then 100 else int (window.slider.Value)
+        int (window.slider.Value)
         
 
     let play1Click x = 
-        ignore (play 1)
+        ignore (playOnce 0)
 
     let playNClick x = 
-        
-            ignore (play (getSliderN 0))
+        if isInf 0
+        then
+            playInf 0
+        else
+            play (getSliderN 0)
         
         
         

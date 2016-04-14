@@ -8,10 +8,10 @@
     <ProjectGuid>53ace724-cd7d-42df-8970-dc39b36155dd</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>ReactiveTutorial</RootNamespace>
-    <AssemblyName>ReactiveTutorial</AssemblyName>
+    <AssemblyName>Game Of Life</AssemblyName>
     <targetframeworkversion>v4.5</targetframeworkversion>
     <TargetFSharpCoreVersion>4.3.0.0</TargetFSharpCoreVersion>
-    <Name>ReactiveTutorial</Name>
+    <Name>Game Of Life</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <DebugSymbols>true</DebugSymbols>
@@ -19,7 +19,7 @@
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;2</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
     <DocumentationFile>bin\Debug\ReactiveTutorial.XML</DocumentationFile>

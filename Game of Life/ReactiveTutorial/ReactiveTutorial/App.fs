@@ -2,182 +2,106 @@
 
 open System
 open System.Windows
+open System.Windows.Media
 open System.Windows.Controls
+open System.Windows.Controls.Primitives
 open FSharpx
 
-//Load GUI
-type MainWindow = XAML<"MainWindow.xaml">
+module cells =
+    let coordsToSeqNum (x,y) columns = y*columns+x
+    let moldCell (x, y) (grid:Grid) =
+        let cell = ToggleButton()
+        Grid.SetColumn(cell, x)
+        Grid.SetRow(cell, y)
+        cell.Background <- SolidColorBrush(Color.FromScRgb(255.0f, 255.0f, 255.0f, 255.0f))
+        ignore (grid.Children.Add(cell))
+        1
+    let rec moldCellRow row column columns (grid:Grid) =
+        if column < columns
+        then moldCell (column, row) grid + moldCellRow row (column+1) columns grid
+        else 0
+    let rec moldCellGrid row rows columns (grid:Grid) =
+        if row < rows
+        then moldCellRow row 0 columns grid + moldCellGrid (row+1) rows columns grid
+        else 0
+    let setCellStatus (x,y) alive (grid:Grid) columns =
+        grid.Children.Item(coordsToSeqNum (x,y) columns).SetValue(ToggleButton.IsCheckedProperty, alive) 
+    let getCellStatus (x,y) (grid:Grid) columns =
+        System.Convert.ToBoolean(grid.Children.Item(coordsToSeqNum (x,y) columns).GetValue(ToggleButton.IsCheckedProperty))
+    let live (x,y) (grid:Grid) columns = setCellStatus (x,y) true grid columns
+    let die (x,y) (grid:Grid) columns = setCellStatus (x,y) false grid columns
+    let alive (x,y) (grid:Grid) columns = getCellStatus (x,y) grid columns
+    let dead (x,y) (grid:Grid) columns = not (alive (x,y) grid columns)
+    let boolToInt value = if value then 1 else 0
+    let cellGrid scale (grid:Grid) = Array2D.init scale scale (fun x y -> (alive (x, y) grid scale))
+    let getCellFromGrid (x, y) scale (cellGrid:bool [,]) =
+        (if x >= 0 && x < scale && y >= 0 && y < scale then cellGrid.[x, y] else false) |> boolToInt
 
-//Set Grid Size
-let c = 16
-
-//Main Loop
-let loadWindow() =
-    let window = MainWindow()
-   
-    //Populate Cells
-    let rec popRow r c i =
-        if i < c
-        then
-            let b = System.Windows.Controls.Primitives.ToggleButton()
-            Grid.SetRow(b, r)
-            Grid.SetColumn(b, i)
-            b.Background <- System.Windows.Media.SolidColorBrush(Media.Color.FromScRgb(255.0f, 255.0f, 255.0f, 255.0f))
-            ignore (window.gameGrid.Children.Add(b))
-            popRow r c (i+1)
-        else
-            ignore 0
-
-    let rec popRows r c i =
-        if i < r
-        then
-            popRow i c 0
-            popRows r c (i+1)
-        else
-            ignore 0
-
-    popRows 16 16 0
-
-    //Helper functions to manipulate cells
-    let xy2i (x,y) c =
-        y*c+x
-    let setCell (x,y) b =
-        window.gameGrid.Children.Item(xy2i (x,y) c).SetValue(Controls.Primitives.ToggleButton.IsCheckedProperty, b) 
-    let getCell (x,y) =
-        System.Convert.ToBoolean(window.gameGrid.Children.Item(xy2i (x,y) c).GetValue(Controls.Primitives.ToggleButton.IsCheckedProperty))
-    let live (x,y) =
-        setCell (x,y) true
-    let die (x,y) =
-        setCell (x,y) false
-    let alive (x,y) =
-        getCell (x,y)
-    let dead (x,y) =
-        not (alive (x,y))
-
-    //Get a bool grid of the cells
-    let boolRow r =
-        [| for j in 0 .. 15 -> alive (j, r) |]
-    let boolRows =
-        (boolRow 1)
-    let boolGrid n =
-        Array2D.init n n (fun i j -> (alive (i, j)))
-    let bool2int b =
-        if b then 1 else 0
-
-    //Access cell status safely
-    let getCellSafe (x, y) l1 l2 (g:bool [,]) =
-        bool2int (if x >= l1 && x <= l2 && y >= l1 && y <= l2
-                    then g.[x, y]
-                    else false)
-        
-
-    //Run game
-    let step (x, y) g = 
+module gameOfLife =
+    let cycleCell (x, y) scale (cellGrid: bool [,]) (grid:Grid) = 
         let a = 
-            getCellSafe (x-1, y) 0 15 g +
-            getCellSafe (x-1, y+1) 0 15 g +
-            getCellSafe (x-1, y-1) 0 15 g +
-            getCellSafe (x+1, y) 0 15 g +
-            getCellSafe (x+1, y+1) 0 15 g +
-            getCellSafe (x+1, y-1) 0 15 g +
-            getCellSafe (x, y+1) 0 15 g +
-            getCellSafe (x, y-1) 0 15 g
+            cells.getCellFromGrid (x-1, y) scale cellGrid +
+            cells.getCellFromGrid (x-1, y+1) scale cellGrid +
+            cells.getCellFromGrid (x-1, y-1) scale cellGrid +
+            cells.getCellFromGrid (x+1, y) scale cellGrid +
+            cells.getCellFromGrid (x+1, y+1) scale cellGrid +
+            cells.getCellFromGrid (x+1, y-1) scale cellGrid +
+            cells.getCellFromGrid (x, y+1) scale cellGrid +
+            cells.getCellFromGrid (x, y-1) scale cellGrid
         if a < 2
         then
-            die (x, y)
-            let t = g.[x, y]
+            cells.die (x, y) grid scale
+            let t = cellGrid.[x, y]
             if t then 1 else 0
         else if a > 3
         then
-            die (x, y)
-            let t = g.[x, y]
+            cells.die (x, y) grid scale
+            let t = cellGrid.[x, y]
             if t then 1 else 0
         else if a = 3
         then
-            live (x, y)
-            let t = not (g.[x, y])
+            cells.live (x, y) grid scale
+            let t = not (cellGrid.[x, y])
             if t then 1 else 0
         else 0
-
-    let rec stepRow r c i g =
-        if i < c
+    let rec cycleRow row column columns scale (cellGrid:bool [,]) (grid:Grid) =
+        if column < columns
+        then cycleCell (column, row) scale cellGrid grid + cycleRow row (column+1) columns scale cellGrid grid
+        else 0
+    let rec cycleGrid row rows columns scale (cellGrid:bool [,]) (grid:Grid) =
+        if row < rows
+        then cycleRow row 0 columns scale cellGrid grid + cycleGrid (row+1) rows columns scale cellGrid grid
+        else 0
+    let rec resetRow row column columns scale (grid:Grid) =
+        if column < columns
         then
-            let a = (step (i, r) g)
-            let b = (stepRow r c (i+1) g)
-            a + b
-        else
-            0
-
-    let rec stepRows r c i g =
-        if i < r then
-            let a = (stepRow i c 0 g)
-            let b = (stepRows r c (i+1) g)
-            a + b
+            cells.die (column, row) grid scale
+            1 + resetRow row (column+1) columns scale grid
+        else 0
+    let rec resetGrid row rows columns scale (grid:Grid) =
+        if row < rows
+        then resetRow row 0 columns scale grid + resetGrid (row+1) rows columns scale grid
         else 0
 
-    //Check wheter N = INF
-    let isInf _ =
-        System.Convert.ToBoolean(window.inf.GetValue(Controls.Primitives.ToggleButton.IsCheckedProperty))
+module UI =
+    type MainWindow = XAML<"MainWindow.xaml">
+    let getN (slider:Slider) = int (slider.Value)
+    let isNInf (inf:ToggleButton) = System.Convert.ToBoolean(inf.GetValue(ToggleButton.IsCheckedProperty))
 
-    //Play in INF mode
-    let rec playInf _ = 
-        let x = (stepRows 16 16 0 (boolGrid 16))
-        if x > 0 && isInf 0
-        then playInf 0
-        
-    //Play once
-    let playOnce _ =
-        stepRows 16 16 0 (boolGrid 16)
-
-    //Play N times
-    let play n = 
-            let rec play1 n = 
-                if n > 0
-                then
-                    let a = (stepRows 16 16 0 (boolGrid 16))
-                    if a <> 0 then a + (play1 (n-1)) else a
-                else 0
-            in ignore (play1 n)
-                
-    //Get N 
-    let getSliderN _ =
-        int (window.slider.Value)
-        
-    //UI Event Handlers
-    let play1Click x = 
-        ignore (playOnce 0)
-
-    let playNClick x = 
-        if isInf 0
-        then
-            playInf 0
-        else
-            play (getSliderN 0)
-    
-    //Reset game   
-    let rec killRow r c i =
-        if i < c
-        then
-            die (i, r)
-            killRow r c (i+1)
-        else
-            ignore 0
-
-    let rec killRows r c i =
-        if i < r then
-            killRow i c 0
-            killRows r c (i+1)
-        else ignore 0
-
-    let kill x =
-        ignore (killRows 16 16 0)
-       
-    //UI Glue
-    window.play1.Click.Add(play1Click)
-    window.playN.Click.Add(playNClick)
-    window.kill.Click.Add(kill)
-
-    
+let loadWindow() =
+    let window = UI.MainWindow()
+    let grid = window.gameGrid
+    let scale = 16
+    let cellCount = cells.moldCellGrid 0 scale scale window.gameGrid
+    let cycle _ = gameOfLife.cycleGrid 0 scale scale scale (cells.cellGrid scale grid) grid
+    let cycle1 _ = cycle 0 |> ignore
+    let rec cycleInf _ = if (cycle 0) > 0 && UI.isNInf window.inf then cycleInf 0
+    let rec cycleN n = if n > 0 then (let progress = cycle 0 in if progress <> 0 then progress + (cycleN (n-1)) else progress) else 0
+    let cycleM _ = if UI.isNInf window.inf then cycleInf 0 else cycleN (UI.getN window.slider) |> ignore
+    let reset _ = gameOfLife.resetGrid 0 scale scale scale grid |> ignore
+    window.play1.Click.Add(cycle1)
+    window.playN.Click.Add(cycleM)
+    window.kill.Click.Add(reset)
     window.Root
 
 [<STAThread>]
